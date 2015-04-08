@@ -4,7 +4,7 @@
 
 Purpose: Pull data from Oracle database. Download exemption file from Google 
 Drive. Remove exemptions from list. Properly format CSV file to be given to 
-communications team.
+communications team..
 
 '''
 
