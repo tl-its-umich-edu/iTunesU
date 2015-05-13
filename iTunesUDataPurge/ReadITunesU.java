@@ -1,12 +1,21 @@
 import java.io.*;
+
 import org.xml.sax.*;
 import org.xml.sax.helpers.*;
+import org.w3c.dom.*;
 
 import java.util.StringTokenizer;
 import java.util.Vector;
 import java.util.List;
 import java.util.HashSet;
+import java.util.Hashtable;
 
+import org.apache.http.client.*;
+import org.apache.http.params.*;
+import org.apache.http.client.methods.*;
+import org.apache.http.impl.client.DefaultHttpClient;
+import org.apache.http.HttpResponse;
+import org.apache.http.HttpEntity;
 
 // using SAX
 public class ReadITunesU {
@@ -190,19 +199,65 @@ public class ReadITunesU {
 		return v.isEmpty()?"N/A":v;
 	}
 	
+	public void list_size_from_showtree_API()
+    {
+		// the downloadUrl attribute will be availabel on the "most" level
+		String displayName = "Admin DisplayName";//args[1];
+		String emailAddress = "Admin Email Address";//args[2];
+		String username = "Admin Username";//args[3];
+		String userIdentifier = "Admin ID";//args[4];
+		Hashtable<String, String> t = Utils.getITunesUCreds(true,false, displayName, emailAddress, username, userIdentifier);
+		String prefix = t.get("prefix")!=null?(String) t.get("prefix"):"";
+		String destination= t.get("destination")!=null?(String) t.get("destination"):"";
+		String token = t.get("token")!=null?(String) t.get("token"):"";
+		String showtreeUrl = Utils.getShowTreeUrl(prefix, destination, "maximal", token);
+		
+		HttpPost httppost = new HttpPost(showtreeUrl);
+		try
+		{
+			// get HttpClient instance
+			HttpClient httpClient = Utils.getHttpClientInstance();
+			
+			// add the course site	
+			HttpResponse response = httpClient.execute(httppost);
+			// if using Identifier to determine course, call local method
+			// otherwise, feed it into the Digester to match on name
+			HttpEntity httpEntity = response.getEntity();
+    		if (httpEntity != null)
+    		{
+    			InputStream responseStream = httpEntity.getContent();
+				list(new InputSource(responseStream));
+				responseStream.close();
+				// When HttpClient instance is no longer needed, 
+		        // shut down the connection manager to ensure
+		        // immediate deallocation of all system resources
+		        httpClient.getConnectionManager().shutdown();
+    		}
+		}
+		catch (FileNotFoundException e)
+		{
+			System.out.println(e.getMessage());
+		}
+		catch (IOException e)
+		{
+			System.out.println(e.getMessage());
+		}
+		catch (Exception e)
+		{
+			System.out.println(e.getMessage());
+		}
+    }
 	
-    public void list(String showTreeFileName  ) throws Exception {
-		XMLReader parser =
-		XMLReaderFactory.createXMLReader();
+	public void list(InputSource showTreeInputSource  ) throws Exception {
+		XMLReader parser = XMLReaderFactory.createXMLReader();
 		parser.setContentHandler(new HowToHandler( ));
-		parser.parse(showTreeFileName);
+		parser.parse(showTreeInputSource);
 	}
 	
 	
     public static void main(String[] args) throws Exception {
 		
-        String showTreeFileName = args[0];
-        String siteIdFileName = args[1];
+        String siteIdFileName = args[0];
         
 		// read in site contact info
 		File siteIdFile = new File(siteIdFileName);
@@ -245,7 +300,7 @@ public class ReadITunesU {
         
 		// parse the itunesu xml file
 		System.out.print("COUNT\tSITE_NAME\tHANDLE\tSITE_ID\tINSTRUCTOR_NAME\tTOTAL_FILE_SIZE\n");//\tCONTACT_NAME\tCONTACT_EMAIL\tTERM\tTERM_ID\tCREATED_ON\n");
-		new ReadITunesU().list(showTreeFileName );
+		new ReadITunesU().list_size_from_showtree_API();
 	}
 	
 	public class Course
