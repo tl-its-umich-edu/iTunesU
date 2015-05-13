@@ -123,71 +123,39 @@ public class DownloadITunesuFile {
     {  
     	HashMap<String, String> rv = new HashMap<String, String>();
 		// the downloadUrl attribute will be availabel on the "most" level
-		String showtreeUrl = Utils.getShowTreeUrl(prefix, destination, "most", token);
-		
-		HttpPost httppost = new HttpPost(showtreeUrl);
-		try
+		Document doc = Utils.getShowtreeDocument(prefix, destination, "most", token);
+		if (doc != null)
 		{
-			// get HttpClient instance
-			HttpClient httpClient = Utils.getHttpClientInstance();
-			
-			// add the course site	
-			HttpResponse response = httpClient.execute(httppost);
-			// if using Identifier to determine course, call local method
-			// otherwise, feed it into the Digester to match on name
-			HttpEntity httpEntity = response.getEntity();
-    		if (httpEntity != null)
-    		{
-    			InputStream responseStream = httpEntity.getContent();
-    			Document doc = Utils.readDocumentFromStream(responseStream);
-				int totalSites = siteIds.size();
-				int count = 1;
-    			for (Map.Entry<String, String> entry : siteIds.entrySet()) {
-					String siteId = entry.getKey();
-					String siteTitle = entry.getValue();
-    				siteId = StringUtils.trimToNull(siteId.replaceAll("[\t\r\n]", ""));
-					
-					// Create a directory; all ancestor directories must exist
-					String siteDirectoryName = rootDir + "/" + siteTitle + "(" + siteId + ")";
-					boolean success = false;
-					if (!(new File(siteDirectoryName)).exists())
-					{
-						success = (new File(siteDirectoryName)).mkdirs();
-					}
-					else
-					{
-						success = true;
-					}
-					
-					System.out.println("Percent " + count++*100.0/totalSites + ": Downloading materials for site " + siteTitle + " site id=" + siteId);
-					
-					if (!success) {
-						// Directory creation failed
-						System.out.println("failed create directory for site " + siteTitle + " id=" + siteId);
-					}
-					else
-					{
-						parseShowTreeXMLDoc(doc, siteDirectoryName, siteId, siteTitle, "DownloadUrl", displayName, emailAddress, username, userIdentifier);
-					}
-    			}
-				responseStream.close();
-				// When HttpClient instance is no longer needed, 
-		        // shut down the connection manager to ensure
-		        // immediate deallocation of all system resources
-		        httpClient.getConnectionManager().shutdown();
-    		}
-		}
-		catch (FileNotFoundException e)
-		{
-			System.out.println(e.getMessage());
-		}
-		catch (IOException e)
-		{
-			System.out.println(e.getMessage());
-		}
-		catch (Exception e)
-		{
-			System.out.println(e.getMessage());
+			int totalSites = siteIds.size();
+			int count = 1;
+			for (Map.Entry<String, String> entry : siteIds.entrySet()) {
+				String siteId = entry.getKey();
+				String siteTitle = entry.getValue();
+				siteId = StringUtils.trimToNull(siteId.replaceAll("[\t\r\n]", ""));
+				
+				// Create a directory; all ancestor directories must exist
+				String siteDirectoryName = rootDir + "/" + siteTitle + "(" + siteId + ")";
+				boolean success = false;
+				if (!(new File(siteDirectoryName)).exists())
+				{
+					success = (new File(siteDirectoryName)).mkdirs();
+				}
+				else
+				{
+					success = true;
+				}
+				
+				System.out.println("Percent " + count++*100.0/totalSites + ": Downloading materials for site " + siteTitle + " site id=" + siteId);
+				
+				if (!success) {
+					// Directory creation failed
+					System.out.println("failed create directory for site " + siteTitle + " id=" + siteId);
+				}
+				else
+				{
+					parseShowTreeXMLDoc(doc, siteDirectoryName, siteId, siteTitle, "DownloadUrl", displayName, emailAddress, username, userIdentifier);
+				}
+			}
 		}
     }
 	

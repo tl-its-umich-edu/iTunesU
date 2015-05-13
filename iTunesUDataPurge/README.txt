@@ -10,7 +10,7 @@ Java commands to download iTunesU tool content or remove iTunesU tools:
 
 1. ReadITunesU.java parses the iTunes U showTree file, based on a list of sakai site ids. 
 
-It accepts one parameter, site_id.txt, with line fomat of <site_name>/t<site_id>
+It accepts one parameter, site_id.txt, with line format of <site_name>/t<site_id>
 
 The result is a tab-spearated text file, showing the total file storage size used by each site page on iTunes U.
 
@@ -24,6 +24,6 @@ Before use, one need to change the program for required credentials and server i
 java -cp target/iTunesuDataPurge-1.0-jar-with-dependencies.jar DownloadITunesuFile site_id.txt <download_working_path>
 
 
-3. RemoveITunesUCourses.java remove the itunesu course from iTunesu server, based on a given list of site ids. Before use, one need to change the program for required credentials and server information. 
+3. RemoveITunesUCourses.java remove the itunesu course from iTunesu server, based on a given list of site ids.  
 
-<TODO>
+java -cp target/iTunesuDataPurge-1.0-jar-with-dependencies.jar RemoveITunesUCourses site_id.txt

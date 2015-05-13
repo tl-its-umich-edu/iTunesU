@@ -12,6 +12,7 @@ import java.security.NoSuchAlgorithmException;
 import org.xml.sax.*;
 import org.xml.sax.helpers.*;
 import org.w3c.dom.*;
+
 import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
 import javax.xml.parsers.ParserConfigurationException;
@@ -20,6 +21,10 @@ import javax.xml.parsers.SAXParserFactory;
 
 import org.apache.http.client.*;
 import org.apache.http.params.*;
+import org.apache.http.client.methods.*;
+import org.apache.http.entity.mime.MultipartEntity;
+import org.apache.http.entity.mime.HttpMultipartMode;
+import org.apache.http.entity.mime.content.FileBody;
 import org.apache.http.impl.client.DefaultHttpClient;
 import org.apache.http.HttpResponse;
 import org.apache.http.HttpEntity;
@@ -45,11 +50,11 @@ class Utils
     		return null;
     	
         String iTunesUSiteId = configs.get("iTunesU_site_id");
-    	String siteURL = "https://deimos.apple.com/WebObjects/Core.woa/Browse/" + iTunesUSiteId;
+    	String siteURL = configs.get("site_URL");
     	String sharedSecret = configs.get("iTunesU_site_sharedSecret");
     	String sectionHandle = configs.get("section_handle");
     	
-        String [] credentialsArray = new String [1];
+        String[] credentialsArray = new String[1];
 
         credentialsArray[0] = configs.get("admin_credential");
 
@@ -113,7 +118,7 @@ class Utils
  
     		// get the property value and print it out
         	rv.put("iTunesU_site_id", prop.getProperty("iTunesU_site_id"));
-        	rv.put("siteURL", "https://deimos.apple.com/WebObjects/Core.woa/Browse/" + prop.getProperty("iTunesU_site_id"));
+        	rv.put("site_URL", "https://deimos.apple.com/WebObjects/Core.woa/Browse/" + prop.getProperty("iTunesU_site_id"));
         	rv.put("iTunesU_site_sharedSecret", prop.getProperty("iTunesU_site_sharedSecret"));
         	rv.put("admin_credential", prop.getProperty("admin_credential"));
  
@@ -385,8 +390,6 @@ class Utils
 		// otherwise get minimal
 		// NOTE: minimal returns Name, Handle, AggregateSize only
 		url = url + "?keyGroup=" + keyGroup + "&" + token;
-		
-		//System.out.println("getITunesUCourseHandle: url=" + url);
 		return url;
 	}
 	
@@ -422,5 +425,46 @@ class Utils
 		HttpConnectionParams.setConnectionTimeout(httpParams, connectionTimeoutMilliseconds);
 		HttpConnectionParams.setSoTimeout(httpParams, socketTimeoutMilliseconds);
 		return httpClient;
+	}
+	
+	static Document getShowtreeDocument(String prefix, String destination, String showtree_degree, String token)
+	{
+		Document doc = null;
+		
+		String showtreeUrl = getShowTreeUrl(prefix, destination, showtree_degree, token);
+		System.out.println("showtree=" + showtreeUrl);
+		
+		HttpPost httppost = new HttpPost(showtreeUrl);
+		try
+		{
+			// get HttpClient instance
+			HttpClient httpClient = getHttpClientInstance();
+			
+			// add the course site	
+			HttpResponse response = httpClient.execute(httppost);
+			// if using Identifier to determine course, call local method
+			// otherwise, feed it into the Digester to match on name
+			HttpEntity httpEntity = response.getEntity();
+    		if (httpEntity != null)
+    		{
+    			InputStream responseStream = httpEntity.getContent();
+    			doc = Utils.readDocumentFromStream(responseStream);
+				responseStream.close();
+				// When HttpClient instance is no longer needed, 
+		        // shut down the connection manager to ensure
+		        // immediate deallocation of all system resources
+		        httpClient.getConnectionManager().shutdown();
+    		}
+		}
+		catch (IOException e)
+		{
+			System.out.println("removeCourses IOException " + e.getMessage());
+		}
+		catch (Exception e)
+		{
+			System.out.println("removeCourses Exception " + e.getMessage());
+		}
+		
+		return doc;
 	}
 }

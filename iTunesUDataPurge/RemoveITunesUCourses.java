@@ -132,68 +132,35 @@ public class RemoveITunesUCourses {
     	HashMap<String, String> rv = new HashMap<String, String>();
 		// the downloadUrl attribute will be availabel on the "most" level
 		String token = getCredentialToken(displayName, emailAddress, username, userIdentifier);
-		String showtreeUrl = Utils.getShowTreeUrl(prefix, destination, "minimal", token);
-		System.out.println("showtree=" + showtreeUrl);
-		
-		HttpPost httppost = new HttpPost(showtreeUrl);
-		try
+		Document doc = Utils.getShowtreeDocument(prefix, destination, "minimal", token);
+		if (doc != null)
 		{
-			// get HttpClient instance
-			HttpClient httpClient = Utils.getHttpClientInstance();
+			// get the mapping of site id and site handler
+			HashMap<String, String> map = parseShowTreeXMLDoc(doc);
 			
-			// add the course site	
-			HttpResponse response = httpClient.execute(httppost);
-			// if using Identifier to determine course, call local method
-			// otherwise, feed it into the Digester to match on name
-			HttpEntity httpEntity = response.getEntity();
-    		if (httpEntity != null)
-    		{
-    			InputStream responseStream = httpEntity.getContent();
-    			Document doc = Utils.readDocumentFromStream(responseStream);
-				// get the mapping of site id and site handler
-				HashMap<String, String> map = parseShowTreeXMLDoc(doc);
-				
-				int totalSites = siteIds.size();
-				int count = 0;
-    			for (Map.Entry<String, String> entry : siteIds.entrySet()) {
-					String siteId = entry.getKey();
-					String siteTitle = entry.getValue();
-    				siteId = StringUtils.trimToNull(siteId.replaceAll("[\t\r\n]", ""));
-					String siteHandle = map.containsKey(siteId)? map.get(siteId):"";
-					if (!siteHandle.isEmpty()) 
-					{
-						count++;
-						System.out.println("found " + count + " title=" + siteTitle + " id=" + siteId + "\tsite handle=" + siteHandle);
-						String xmlDocument = getDeleteCourseXml(siteHandle);
-						
-						token = getCredentialToken(displayName, emailAddress, username, userIdentifier);
-						
-						// upload url
-						String uploadURL = getUploadURL(siteHandle, prefix, destination, token);
-						
-						// delete course xml
-						//System.out.println(xmlDocument);
-						//wsCall(WS_DELETE_COURSE, uploadURL, xmlDocument, prefix, destination, token);
-					}
-    			}
-				responseStream.close();
-				// When HttpClient instance is no longer needed, 
-		        // shut down the connection manager to ensure
-		        // immediate deallocation of all system resources
-		        httpClient.getConnectionManager().shutdown();
-    		}
-		}
-		catch (FileNotFoundException e)
-		{
-			System.out.println("removeCourses FileNotFoundException " + e.getMessage());
-		}
-		catch (IOException e)
-		{
-			System.out.println("removeCourses IOException " + e.getMessage());
-		}
-		catch (Exception e)
-		{
-			System.out.println("removeCourses Exception " + e.getMessage());
+			int totalSites = siteIds.size();
+			int count = 0;
+			for (Map.Entry<String, String> entry : siteIds.entrySet()) {
+				String siteId = entry.getKey();
+				String siteTitle = entry.getValue();
+				siteId = StringUtils.trimToNull(siteId.replaceAll("[\t\r\n]", ""));
+				String siteHandle = map.containsKey(siteId)? map.get(siteId):"";
+				if (!siteHandle.isEmpty()) 
+				{
+					count++;
+					System.out.println("found " + count + " title=" + siteTitle + " id=" + siteId + "\tsite handle=" + siteHandle);
+					String xmlDocument = getDeleteCourseXml(siteHandle);
+					
+					token = getCredentialToken(displayName, emailAddress, username, userIdentifier);
+					
+					// upload url
+					String uploadURL = getUploadURL(siteHandle, prefix, destination, token);
+					
+					// delete course xml
+					//System.out.println(xmlDocument);
+					//wsCall(WS_DELETE_COURSE, uploadURL, xmlDocument, prefix, destination, token);
+				}
+			}
 		}
     }
 	
