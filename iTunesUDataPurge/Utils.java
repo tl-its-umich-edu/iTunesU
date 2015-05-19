@@ -121,6 +121,8 @@ class Utils
         	rv.put("site_URL", "https://deimos.apple.com/WebObjects/Core.woa/Browse/" + prop.getProperty("iTunesU_site_id"));
         	rv.put("iTunesU_site_sharedSecret", prop.getProperty("iTunesU_site_sharedSecret"));
         	rv.put("admin_credential", prop.getProperty("admin_credential"));
+        	rv.put("section_handle", prop.getProperty("section_handle"));
+        	rv.put("template_handle", prop.getProperty("template_handle"));
  
     	} catch (IOException ex) {
     		ex.printStackTrace();
@@ -449,8 +451,8 @@ class Utils
     		{
     			InputStream responseStream = httpEntity.getContent();
     			doc = Utils.readDocumentFromStream(responseStream);
-				responseStream.close();
-				// When HttpClient instance is no longer needed, 
+			responseStream.close();
+			// When HttpClient instance is no longer needed, 
 		        // shut down the connection manager to ensure
 		        // immediate deallocation of all system resources
 		        httpClient.getConnectionManager().shutdown();
