@@ -290,7 +290,7 @@ public class DownloadITunesuFile {
 																	username, userIdentifier);
 								String credentials = Utils.getCredentialsString(credentialsArray);
 								Date now = new Date();
-								byte[] key = Utils.getBytes(configs.get("sharedSecret"), "US-ASCII");
+								byte[] key = Utils.getBytes(configs.get("iTunesU_site_sharedSecret"), "US-ASCII");
 								String token = Utils.getAuthorizationToken(credentials, identity,
 																	 now, key);
 								trackDownloadUrl+="?" + token;
