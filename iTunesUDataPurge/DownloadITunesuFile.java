@@ -34,6 +34,10 @@ import org.apache.commons.lang.*;
 
 import java.io.*;
 
+import java.text.DateFormat;
+import java.text.SimpleDateFormat;
+import java.util.Calendar;
+
 
 // using SAX
 public class DownloadITunesuFile {
@@ -290,7 +294,7 @@ public class DownloadITunesuFile {
 																	username, userIdentifier);
 								String credentials = Utils.getCredentialsString(credentialsArray);
 								Date now = new Date();
-								byte[] key = Utils.getBytes(configs.get("sharedSecret"), "US-ASCII");
+								byte[] key = Utils.getBytes(configs.get("iTunesU_site_sharedSecret"), "US-ASCII");
 								String token = Utils.getAuthorizationToken(credentials, identity,
 																	 now, key);
 								trackDownloadUrl+="?" + token;
@@ -385,9 +389,18 @@ public class DownloadITunesuFile {
 													}
 													
 													System.out.println("item download url= " + itemUrl + " name=" + itemName + " item suffix=" + itemSuffix);
-													
+													System.out.println("Group Directory Name= " + groupDirectoryName);
+
+													if(isFilePresent(groupDirectoryName, itemName+"."+itemSuffix)){
+														DateFormat df = new SimpleDateFormat("_yyyyMMddHHmmssSSS");
+														String dateText = df.format(Calendar.getInstance().getTime());
+														itemName = itemName+dateText+"."+itemSuffix;
+													}
+													else{
+														itemName = itemName+"."+itemSuffix;
+													}
 													// download the item
-													fileUrl(itemUrl, itemName+"." + itemSuffix, groupDirectoryName);
+													fileUrl(itemUrl, itemName, groupDirectoryName);
 													
 												}
 											}
@@ -462,6 +475,24 @@ public class DownloadITunesuFile {
 				e.printStackTrace();
 			}
 		}
+	}
+
+	public static boolean isFilePresent(String directory, String fileName){
+
+		boolean result = false;
+
+		String completeFileName = directory + "/" + fileName;
+		
+		File file = new File(completeFileName);
+
+		if(file.exists() && !file.isDirectory()){
+			System.out.println("File Exists!");
+			result = true;
+		}
+		else{
+			result = false;
+		}
+		return result;
 	}
 	
 }

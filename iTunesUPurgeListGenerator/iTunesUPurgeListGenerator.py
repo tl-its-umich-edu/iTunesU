@@ -172,7 +172,7 @@ for entry in entries:
     if siteId in exceptions:
         #skip
         continue
-    sortedSiteIds.append(siteId)
+    sortedSiteIds.append(name + '\t' + siteId)
 
 #Convert SiteIds list to set. This will strip all duplicates because sets can 
 #only have unique values.
