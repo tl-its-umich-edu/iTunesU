@@ -3,6 +3,8 @@ import java.io.*;
 import org.xml.sax.*;
 import org.xml.sax.helpers.*;
 import org.w3c.dom.*;
+import org.w3c.dom.Node;
+import org.w3c.dom.Text;
 
 import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
@@ -39,6 +41,8 @@ import java.io.*;;
 import org.w3c.dom.ls.DOMImplementationLS;
 import org.w3c.dom.ls.LSOutput;
 import org.w3c.dom.ls.LSSerializer;
+
+import javax.xml.soap.*;
 
 // using SAX
 public class RemoveITunesUCourses {
@@ -109,7 +113,7 @@ public class RemoveITunesUCourses {
 		{
 			System.out.println("IOException " + removeCoursesFileName);
 		}
-		
+
 		if (!removeCoursesIds.isEmpty())
 		{
 			Hashtable<String, String> t = Utils.getITunesUCreds(true,false, displayName, emailAddress, username, userIdentifier);
@@ -129,6 +133,15 @@ public class RemoveITunesUCourses {
 	
 	static public void removeCourses(HashMap<String, String> siteIds, String prefix, String destination, String displayName, String emailAddress, String username, String userIdentifier)
     {  
+		Hashtable<String, String> ctoolsConfigs = Utils.getCtoolsConfigs();
+		String searchServer = ctoolsConfigs.get("ctools_search_server");
+		String ctoolsUsername = ctoolsConfigs.get("ctools_admin_username");
+		String ctoolsPassword = ctoolsConfigs.get("ctools_admin_password");
+		
+		//System.out.println("Search Server: " + searchServer);
+		//System.out.println("ctools username: " + ctoolsUsername);
+		//System.out.println("ctools password: " + ctoolsPassword);
+
     	HashMap<String, String> rv = new HashMap<String, String>();
 		// the downloadUrl attribute will be availabel on the "most" level
 		String token = getCredentialToken(displayName, emailAddress, username, userIdentifier);
@@ -158,7 +171,17 @@ public class RemoveITunesUCourses {
 					
 					// delete course xml
 					//System.out.println(xmlDocument);
-					//wsCall(WS_DELETE_COURSE, uploadURL, xmlDocument, prefix, destination, token);
+					wsCall(WS_DELETE_COURSE, uploadURL, xmlDocument, prefix, destination, token);
+
+					System.out.println("Site Id: " + siteId);
+					try{
+						deletePage(searchServer, siteId, ctoolsUsername, ctoolsPassword);
+						System.out.println("iTunes U page for " + siteId + " deleted successfully.");
+					}
+					catch(Exception e){
+						System.out.println("iTunes U page for " + siteId + " not deleted.");
+						System.out.println("deletePage Exception " + e.getMessage());
+					}
 				}
 			}
 		}
@@ -477,6 +500,187 @@ public class RemoveITunesUCourses {
 				e.printStackTrace();
 			}
 		}
+	}
+
+	public static void deletePage(String searchServer, String siteId, String username, String password) throws Exception{
+
+		String pageToDelete = "iTunes U";
+
+		// Create SOAP Connection
+		SOAPConnectionFactory soapConnectionFactory = SOAPConnectionFactory.newInstance();
+		SOAPConnection soapConnection = soapConnectionFactory.createConnection();
+
+		// Send SOAP Message to SOAP Server
+		String sakaiLoginUrl = searchServer + "sakai-axis/SakaiLogin.jws?wsdl";
+		String sakaiScriptUrl = searchServer + "sakai-axis/SakaiScript.jws?wsdl";
+
+		//Making the createLoginRequest call. Returns a response message containing the session id that should be active on server.
+		SOAPMessage soapResponse = soapConnection.call(createLoginRequest(searchServer, username, password), sakaiLoginUrl);
+
+		// print SOAP Response
+		System.out.print("Response SOAP Message:");
+		soapResponse.writeTo(System.out);
+
+		//Parses Soap Response to get session id as string
+		String sessionId = getSessionId(soapResponse);
+		System.out.println("");
+		System.out.println("Session Id:" + sessionId);
+
+		//Test validity of session id by calling Check Session function
+		soapResponse = soapConnection.call(createCheckSessionRequest(searchServer, sessionId), sakaiScriptUrl);
+		System.out.print("Response SOAP Message:");
+		soapResponse.writeTo(System.out);
+
+		String checkedSessionId = getSessionId(soapResponse);
+		System.out.println("");
+		System.out.println("Checked Session Id: " + checkedSessionId);
+
+		//while there are still sites to delete:
+		if(!checkedSessionId.equals("null")){
+			
+			// if session id is not null then remove site
+			soapResponse = soapConnection.call(createRemovePageRequest(searchServer, sessionId, siteId, pageToDelete), sakaiScriptUrl);
+			System.out.print("Response SOAP Message:");
+			soapResponse.writeTo(System.out);
+			System.out.println("");
+			
+		}
+		else{
+			//else get new session id and then process site
+			soapResponse = soapConnection.call(createLoginRequest(searchServer, username, password), sakaiLoginUrl);
+			System.out.print("Response SOAP Message:");
+			soapResponse.writeTo(System.out);
+			
+			checkedSessionId = getSessionId(soapResponse);
+			System.out.println("");
+			System.out.println("Session Id:" + sessionId);
+			
+		}
+		
+		soapConnection.close();
+	}
+
+	public static SOAPMessage createLoginRequest(String serverURI, String username, String password) throws Exception {
+		MessageFactory messageFactory = MessageFactory.newInstance();
+		SOAPMessage soapMessage = messageFactory.createMessage();
+		SOAPPart soapPart = soapMessage.getSOAPPart();
+
+		SOAPEnvelope envelope = soapPart.getEnvelope();
+		envelope.addNamespaceDeclaration("example", serverURI);
+
+		SOAPBody soapBody = envelope.getBody();
+		SOAPElement soapBodyElem = soapBody.addChildElement("login", "example");
+		SOAPElement soapBodyElem1 = soapBodyElem.addChildElement("id", "example");
+		soapBodyElem1.addTextNode(username);
+		SOAPElement soapBodyElem2 = soapBodyElem.addChildElement("pw", "example");
+		soapBodyElem2.addTextNode(password);
+
+		MimeHeaders headers = soapMessage.getMimeHeaders();
+		headers.addHeader("SOAPAction", serverURI  + "login");
+
+		soapMessage.saveChanges();
+
+		/* Print the request message */
+		System.out.print("Request SOAP Message:");
+		soapMessage.writeTo(System.out);
+		System.out.println();
+
+		return soapMessage;
+	}
+
+	public static String getSessionId(SOAPMessage soapResponse ) {
+		String sessionId = "sessionId";
+		try {
+			sessionId = soapResponse.getSOAPBody().getFirstChild().getFirstChild().getTextContent();
+		} catch (DOMException e) {
+			sessionId = "null";
+			e.printStackTrace();
+		} catch (SOAPException e) {
+			sessionId = "null";
+			e.printStackTrace();
+		}
+		return sessionId;
+	}
+
+	public static SOAPMessage createCheckSessionRequest(String serverURI, String sessionId) throws Exception {
+		MessageFactory messageFactory = MessageFactory.newInstance();
+		SOAPMessage soapMessage = messageFactory.createMessage();
+		SOAPPart soapPart = soapMessage.getSOAPPart();
+
+		// SOAP Envelope
+		SOAPEnvelope envelope = soapPart.getEnvelope();
+		envelope.addNamespaceDeclaration("example", serverURI);
+
+		/*
+        Constructed SOAP Request Message:
+		<?xml version="1.0" encoding="UTF-8"?>
+		<SOAP-ENV:Envelope xmlns:SOAP-ENV="http://schemas.xmlsoap.org/soap/envelope/" xmlns:example="https://ctdev.dsc.umich.edu/">
+		   <SOAP-ENV:Header />
+		   <SOAP-ENV:Body>
+		      <example:checkSession>
+		         <example:sessionid>sessionId</example:sessionid>
+		      </example:checkSession>
+		   </SOAP-ENV:Body>
+		</SOAP-ENV:Envelope>
+
+		SOAP Response example
+		<?xml version="1.0" encoding="UTF-8"?>
+		<SOAP-ENV:Envelope xmlns:SOAP-ENV="http://schemas.xmlsoap.org/soap/envelope/" xmlns:example="https://ctdev.dsc.umich.edu/">
+		   <SOAP-ENV:Header />
+		   <SOAP-ENV:Body>
+		      <example:checkSession>
+		         <example:sessionId>sessionId</example:sessionId>
+		      </example:checkSession>
+		   </SOAP-ENV:Body>
+		</SOAP-ENV:Envelope>
+		 */
+
+		SOAPBody soapBody = envelope.getBody();
+		SOAPElement soapBodyElem = soapBody.addChildElement("checkSession", "example");
+		SOAPElement soapBodyElem1 = soapBodyElem.addChildElement("sessionid", "example");
+		soapBodyElem1.addTextNode(sessionId);
+
+		MimeHeaders headers = soapMessage.getMimeHeaders();
+		headers.addHeader("SOAPAction", serverURI  + "checkSession");
+
+		soapMessage.saveChanges();
+
+		/* Print the request message */
+		System.out.print("Request SOAP Message:");
+		soapMessage.writeTo(System.out);
+		System.out.println();
+
+		return soapMessage;
+	}
+
+	public static SOAPMessage createRemovePageRequest(String serverURI, String sessionId, String siteId, String pageTitle) throws Exception {
+		MessageFactory messageFactory = MessageFactory.newInstance();
+		SOAPMessage soapMessage = messageFactory.createMessage();
+		SOAPPart soapPart = soapMessage.getSOAPPart();
+
+		SOAPEnvelope envelope = soapPart.getEnvelope();
+		envelope.addNamespaceDeclaration("example", serverURI);
+
+		SOAPBody soapBody = envelope.getBody();
+		SOAPElement soapBodyElem = soapBody.addChildElement("removePageFromSite", "example");
+		SOAPElement soapBodyElem1 = soapBodyElem.addChildElement("sessionid", "example");
+		soapBodyElem1.addTextNode(sessionId);
+		SOAPElement soapBodyElem2 = soapBodyElem.addChildElement("siteid", "example");
+		soapBodyElem2.addTextNode(siteId);
+		SOAPElement soapBodyElem3 = soapBodyElem.addChildElement("pagetitle", "example");
+		soapBodyElem3.addTextNode(pageTitle);
+		
+		MimeHeaders headers = soapMessage.getMimeHeaders();
+		headers.addHeader("SOAPAction", serverURI  + "removePageFromSite");
+
+		soapMessage.saveChanges();
+
+		/* Print the request message */
+		System.out.print("Request SOAP Message:");
+		soapMessage.writeTo(System.out);
+		System.out.println();
+		
+		return soapMessage;
 	}
 	
 }
