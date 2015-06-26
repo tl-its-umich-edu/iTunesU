@@ -387,16 +387,19 @@ public class DownloadITunesuFile {
 															//TODO: download the actual file with original file name and extension.
 														}
 													}
-													
+
 													System.out.println("item download url= " + itemUrl + " name=" + itemName + " item suffix=" + itemSuffix);
 													System.out.println("Group Directory Name= " + groupDirectoryName);
 
+													//Check to see if file to be downloaded is already in local directory
 													if(isFilePresent(groupDirectoryName, itemName+"."+itemSuffix)){
 														DateFormat df = new SimpleDateFormat("_yyyyMMddHHmmssSSS");
 														String dateText = df.format(Calendar.getInstance().getTime());
+														// if file is present, modify itemName to be downloaded to include current timestamp (concatenate suffix here)
 														itemName = itemName+dateText+"."+itemSuffix;
 													}
 													else{
+														// otherwise keep itemName to be downloaded as is from iTunes U (concatonate suffix here)
 														itemName = itemName+"."+itemSuffix;
 													}
 													// download the item

@@ -137,6 +137,10 @@ public class RemoveITunesUCourses {
 		String searchServer = ctoolsConfigs.get("ctools_search_server");
 		String ctoolsUsername = ctoolsConfigs.get("ctools_admin_username");
 		String ctoolsPassword = ctoolsConfigs.get("ctools_admin_password");
+
+		String sessionId = "empty";
+		String sakaiLoginUrl = searchServer + "sakai-axis/SakaiLogin.jws?wsdl";
+		String sakaiScriptUrl = searchServer + "sakai-axis/SakaiScript.jws?wsdl";	
 		
 		//System.out.println("Search Server: " + searchServer);
 		//System.out.println("ctools username: " + ctoolsUsername);
@@ -175,14 +179,22 @@ public class RemoveITunesUCourses {
 
 					System.out.println("Site Id: " + siteId);
 					try{
-						deletePage(searchServer, siteId, ctoolsUsername, ctoolsPassword);
+						sessionId = deletePage(searchServer, sakaiLoginUrl, sakaiScriptUrl, siteId, sessionId, ctoolsUsername, ctoolsPassword);
 						System.out.println("iTunes U page for " + siteId + " deleted successfully.");
 					}
 					catch(Exception e){
 						System.out.println("iTunes U page for " + siteId + " not deleted.");
-						System.out.println("deletePage Exception " + e.getMessage());
+						System.out.println("deletePage Exception: " + e.getMessage());
 					}
 				}
+			}
+			//logout of CTools after all site Ids have been processed
+			try{
+				finalLogout(searchServer, sakaiLoginUrl, sessionId);
+			}
+			catch(Exception e){
+				System.out.println("iTunes U error: could not log out of CTools");
+				System.out.println("logout exception: " + e.getMessage());
 			}
 		}
     }
@@ -502,7 +514,7 @@ public class RemoveITunesUCourses {
 		}
 	}
 
-	public static void deletePage(String searchServer, String siteId, String username, String password) throws Exception{
+	public static String deletePage(String searchServer, String sakaiLoginUrl, String sakaiScriptUrl, String siteId, String sessionId, String username, String password) throws Exception{
 
 		String pageToDelete = "iTunes U";
 
@@ -510,54 +522,35 @@ public class RemoveITunesUCourses {
 		SOAPConnectionFactory soapConnectionFactory = SOAPConnectionFactory.newInstance();
 		SOAPConnection soapConnection = soapConnectionFactory.createConnection();
 
-		// Send SOAP Message to SOAP Server
-		String sakaiLoginUrl = searchServer + "sakai-axis/SakaiLogin.jws?wsdl";
-		String sakaiScriptUrl = searchServer + "sakai-axis/SakaiScript.jws?wsdl";
-
-		//Making the createLoginRequest call. Returns a response message containing the session id that should be active on server.
-		SOAPMessage soapResponse = soapConnection.call(createLoginRequest(searchServer, username, password), sakaiLoginUrl);
-
-		// print SOAP Response
-		System.out.print("Response SOAP Message:");
-		soapResponse.writeTo(System.out);
-
-		//Parses Soap Response to get session id as string
-		String sessionId = getSessionId(soapResponse);
-		System.out.println("");
-		System.out.println("Session Id:" + sessionId);
-
+		System.out.println("Session Id check 1: " + sessionId);
+		
 		//Test validity of session id by calling Check Session function
-		soapResponse = soapConnection.call(createCheckSessionRequest(searchServer, sessionId), sakaiScriptUrl);
-		System.out.print("Response SOAP Message:");
+		SOAPMessage soapResponse = soapConnection.call(createCheckSessionRequest(searchServer, sessionId), sakaiScriptUrl);
+		System.out.print("Check Session Response SOAP Message:");
 		soapResponse.writeTo(System.out);
-
-		String checkedSessionId = getSessionId(soapResponse);
 		System.out.println("");
-		System.out.println("Checked Session Id: " + checkedSessionId);
+		
+		sessionId = getSessionId(soapResponse);
+		System.out.println("Session Id check 2: " + sessionId);
 
-		//while there are still sites to delete:
-		if(!checkedSessionId.equals("null")){
-			
-			// if session id is not null then remove site
-			soapResponse = soapConnection.call(createRemovePageRequest(searchServer, sessionId, siteId, pageToDelete), sakaiScriptUrl);
-			System.out.print("Response SOAP Message:");
-			soapResponse.writeTo(System.out);
-			System.out.println("");
-			
-		}
-		else{
-			//else get new session id and then process site
+		if(sessionId.equals("null")){
 			soapResponse = soapConnection.call(createLoginRequest(searchServer, username, password), sakaiLoginUrl);
-			System.out.print("Response SOAP Message:");
+			System.out.print("Login Response SOAP Message:");
 			soapResponse.writeTo(System.out);
 			
-			checkedSessionId = getSessionId(soapResponse);
+			sessionId = getSessionId(soapResponse);
 			System.out.println("");
-			System.out.println("Session Id:" + sessionId);
-			
+			System.out.println("Session Id check 3: " + sessionId);
 		}
 		
+		soapResponse = soapConnection.call(createRemovePageRequest(searchServer, sessionId, siteId, pageToDelete), sakaiScriptUrl);
+		System.out.print("Remove Page Response SOAP Message:");
+		soapResponse.writeTo(System.out);
+		System.out.println("");
+				
 		soapConnection.close();
+		
+		return sessionId;
 	}
 
 	public static SOAPMessage createLoginRequest(String serverURI, String username, String password) throws Exception {
@@ -567,6 +560,17 @@ public class RemoveITunesUCourses {
 
 		SOAPEnvelope envelope = soapPart.getEnvelope();
 		envelope.addNamespaceDeclaration("example", serverURI);
+
+		/* SOAP Response Example:
+		<?xml version="1.0" encoding="UTF-8"?>
+		<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+		   <soapenv:Body>
+		      <ns1:loginResponse xmlns:ns1="[SearchServer Here]" soapenv:encodingStyle="http://schemas.xmlsoap.org/soap/encoding/">
+		         <loginReturn xsi:type="xsd:string">[Session Id received from CTools]</loginReturn>
+		      </ns1:loginResponse>
+		   </soapenv:Body>
+		</soapenv:Envelope>
+		*/
 
 		SOAPBody soapBody = envelope.getBody();
 		SOAPElement soapBodyElem = soapBody.addChildElement("login", "example");
@@ -581,7 +585,7 @@ public class RemoveITunesUCourses {
 		soapMessage.saveChanges();
 
 		/* Print the request message */
-		System.out.print("Request SOAP Message:");
+		System.out.print("Login Request SOAP Message:");
 		soapMessage.writeTo(System.out);
 		System.out.println();
 
@@ -611,29 +615,16 @@ public class RemoveITunesUCourses {
 		SOAPEnvelope envelope = soapPart.getEnvelope();
 		envelope.addNamespaceDeclaration("example", serverURI);
 
-		/*
-        Constructed SOAP Request Message:
+		/* SOAP Response Example:
 		<?xml version="1.0" encoding="UTF-8"?>
-		<SOAP-ENV:Envelope xmlns:SOAP-ENV="http://schemas.xmlsoap.org/soap/envelope/" xmlns:example="https://ctdev.dsc.umich.edu/">
-		   <SOAP-ENV:Header />
-		   <SOAP-ENV:Body>
-		      <example:checkSession>
-		         <example:sessionid>sessionId</example:sessionid>
-		      </example:checkSession>
-		   </SOAP-ENV:Body>
-		</SOAP-ENV:Envelope>
-
-		SOAP Response example
-		<?xml version="1.0" encoding="UTF-8"?>
-		<SOAP-ENV:Envelope xmlns:SOAP-ENV="http://schemas.xmlsoap.org/soap/envelope/" xmlns:example="https://ctdev.dsc.umich.edu/">
-		   <SOAP-ENV:Header />
-		   <SOAP-ENV:Body>
-		      <example:checkSession>
-		         <example:sessionId>sessionId</example:sessionId>
-		      </example:checkSession>
-		   </SOAP-ENV:Body>
-		</SOAP-ENV:Envelope>
-		 */
+		<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+		   <soapenv:Body>
+		      <ns1:checkSessionResponse xmlns:ns1="[SearchServer Here]" soapenv:encodingStyle="http://schemas.xmlsoap.org/soap/encoding/">
+		         <checkSessionReturn xsi:type="xsd:string">[Session Id received from CTools or "null" if not valid]</checkSessionReturn>
+		      </ns1:checkSessionResponse>
+		   </soapenv:Body>
+		</soapenv:Envelope>
+		*/
 
 		SOAPBody soapBody = envelope.getBody();
 		SOAPElement soapBodyElem = soapBody.addChildElement("checkSession", "example");
@@ -646,7 +637,7 @@ public class RemoveITunesUCourses {
 		soapMessage.saveChanges();
 
 		/* Print the request message */
-		System.out.print("Request SOAP Message:");
+		System.out.print("Check Session Request SOAP Message:");
 		soapMessage.writeTo(System.out);
 		System.out.println();
 
@@ -660,6 +651,17 @@ public class RemoveITunesUCourses {
 
 		SOAPEnvelope envelope = soapPart.getEnvelope();
 		envelope.addNamespaceDeclaration("example", serverURI);
+
+		/* SOAP Response Example:
+		<?xml version="1.0" encoding="UTF-8"?>
+		<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+		   <soapenv:Body>
+		      <ns1:removePageFromSiteResponse xmlns:ns1="[SearchServer Here]" soapenv:encodingStyle="http://schemas.xmlsoap.org/soap/encoding/">
+		         <removePageFromSiteReturn xsi:type="xsd:string">success</removePageFromSiteReturn>
+		      </ns1:removePageFromSiteResponse>
+		   </soapenv:Body>
+		</soapenv:Envelope>
+		*/
 
 		SOAPBody soapBody = envelope.getBody();
 		SOAPElement soapBodyElem = soapBody.addChildElement("removePageFromSite", "example");
@@ -676,11 +678,62 @@ public class RemoveITunesUCourses {
 		soapMessage.saveChanges();
 
 		/* Print the request message */
-		System.out.print("Request SOAP Message:");
+		System.out.print("Remove Page Request SOAP Message:");
 		soapMessage.writeTo(System.out);
 		System.out.println();
 		
 		return soapMessage;
+	}
+
+	public static void finalLogout(String searchServer, String sakaiLoginUrl, String sessionId) throws Exception{
+		// Create SOAP Connection
+		SOAPConnectionFactory soapConnectionFactory = SOAPConnectionFactory.newInstance();
+		SOAPConnection soapConnection = soapConnectionFactory.createConnection();
+		
+		SOAPMessage soapResponse = soapConnection.call(createLogoutRequest(searchServer, sessionId), sakaiLoginUrl);
+		System.out.print("Logout Response SOAP Message:");
+		soapResponse.writeTo(System.out);
+		System.out.println("");
+		
+		soapConnection.close();
+	}	
+
+	public static SOAPMessage createLogoutRequest(String serverURI, String sessionId) throws Exception{
+		MessageFactory messageFactory = MessageFactory.newInstance();
+		SOAPMessage soapMessage = messageFactory.createMessage();
+		SOAPPart soapPart = soapMessage.getSOAPPart();
+		
+		SOAPEnvelope envelope = soapPart.getEnvelope();
+		envelope.addNamespaceDeclaration("example", serverURI);		
+
+		/*
+		<?xml version="1.0" encoding="UTF-8"?>
+		<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+		   <soapenv:Body>
+		      <ns1:logoutResponse xmlns:ns1="[searchServer]" soapenv:encodingStyle="http://schemas.xmlsoap.org/soap/encoding/">
+		         <logoutReturn href="#id0" />
+		      </ns1:logoutResponse>
+		      <multiRef xmlns:soapenc="http://schemas.xmlsoap.org/soap/encoding/" id="id0" soapenc:root="0" soapenv:encodingStyle="http://schemas.xmlsoap.org/soap/encoding/" xsi:type="xsd:boolean">true</multiRef>
+		   </soapenv:Body>
+		</soapenv:Envelope>
+		 */				
+		
+		SOAPBody soapBody = envelope.getBody();
+		SOAPElement soapBodyElem = soapBody.addChildElement("logout", "example");
+		SOAPElement soapBodyElem1 = soapBodyElem.addChildElement("sessionid", "example");
+		soapBodyElem1.addTextNode(sessionId);
+		
+		MimeHeaders headers = soapMessage.getMimeHeaders();
+		headers.addHeader("SOAPAction", serverURI  + "logout");
+		
+		soapMessage.saveChanges();
+
+		/* Print the request message */
+		System.out.print("Logout Request SOAP Message:");
+		soapMessage.writeTo(System.out);
+		System.out.println("");
+		
+		return soapMessage;		
 	}
 	
 }
