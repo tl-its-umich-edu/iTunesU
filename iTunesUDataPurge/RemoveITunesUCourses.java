@@ -186,7 +186,6 @@ public class RemoveITunesUCourses {
 					//Attempt to remove iTunes U page for specified site
 					//iTunes U page should be removed from site regardless if content deletion was successful
 					sessionId = deletePage(searchServer, sakaiLoginUrl, sakaiScriptUrl, siteId, sessionId, ctoolsUsername, ctoolsPassword);
-					System.out.println("iTunes U page for " + siteId + " deleted successfully.");
 					}
 				catch(Exception e){
 					System.out.println("iTunes U page for " + siteId + " not deleted.");
@@ -535,7 +534,7 @@ public class RemoveITunesUCourses {
 		soapResponse.writeTo(System.out);
 		System.out.println("");
 		
-		sessionId = getFirstNode(soapResponse);
+		sessionId = getFirstNodeText(soapResponse);
 		System.out.println("Session Id check 2: " + sessionId);
 
 		if(sessionId.equals("null")){
@@ -543,7 +542,7 @@ public class RemoveITunesUCourses {
 			System.out.print("Login Response SOAP Message:");
 			soapResponse.writeTo(System.out);
 			
-			sessionId = getFirstNode(soapResponse);
+			sessionId = getFirstNodeText(soapResponse);
 			System.out.println("");
 			System.out.println("Session Id check 3: " + sessionId);
 		}
@@ -554,7 +553,7 @@ public class RemoveITunesUCourses {
 		soapResponse.writeTo(System.out);
 		System.out.println("");
 		
-		String pageList = getFirstNode(soapResponse);
+		String pageList = getFirstNodeText(soapResponse);
 		System.out.println(pageList);
 		
 		if(pageList.contains("<page-title>iTunes U</page-title>")){
@@ -562,6 +561,7 @@ public class RemoveITunesUCourses {
 			System.out.print("Remove Page Response SOAP Message:");
 			soapResponse.writeTo(System.out);
 			System.out.println("");
+			System.out.println("iTunes U page for " + siteId + " deleted successfully.");
 		}
 		else{
 			System.out.println("iTunes U Page does not exist for Site ID: " + siteId);
@@ -611,7 +611,7 @@ public class RemoveITunesUCourses {
 		return soapMessage;
 	}
 
-	public static String getFirstNode(SOAPMessage soapResponse ) {
+	public static String getFirstNodeText(SOAPMessage soapResponse ) {
 		String firstNode = "firstNode";
 		try {
 			firstNode = soapResponse.getSOAPBody().getFirstChild().getFirstChild().getTextContent();
@@ -675,10 +675,49 @@ public class RemoveITunesUCourses {
 		<?xml version="1.0" encoding="UTF-8"?>
 		<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
 		   <soapenv:Body>
-		      <ns1:logoutResponse xmlns:ns1="[searchServer]" soapenv:encodingStyle="http://schemas.xmlsoap.org/soap/encoding/">
-		         <logoutReturn href="#id0" />
-		      </ns1:logoutResponse>
-		      <multiRef xmlns:soapenc="http://schemas.xmlsoap.org/soap/encoding/" id="id0" soapenc:root="0" soapenv:encodingStyle="http://schemas.xmlsoap.org/soap/encoding/" xsi:type="xsd:boolean">true</multiRef>
+		      <ns1:getPagesAndToolsForSiteResponse xmlns:ns1="[Search Server]" soapenv:encodingStyle="http://schemas.xmlsoap.org/soap/encoding/">
+		         <getPagesAndToolsForSiteReturn xsi:type="xsd:string">&lt;?xml version="1.0" encoding="UTF-8"?&gt;
+		&lt;site id="[Site Id]"&gt;
+		&lt;pages&gt;
+		&lt;page id="[Page Id]"&gt;
+		&lt;page-title&gt;Home&lt;/page-title&gt;
+		&lt;tools&gt;
+		&lt;tool id="[Tool Id]"&gt;
+		&lt;tool-id&gt;sakai.iframe.site&lt;/tool-id&gt;
+		&lt;tool-title&gt;Site Information Display&lt;/tool-title&gt;
+		&lt;/tool&gt;
+		&lt;/tools&gt;
+		&lt;/page&gt;
+		&lt;page id="[Page Id]"&gt;
+		&lt;page-title&gt;Google Drive&lt;/page-title&gt;
+		&lt;tools&gt;
+		&lt;tool id="[Tool Id]"&gt;
+		&lt;tool-id&gt;sakai.web.168&lt;/tool-id&gt;
+		&lt;tool-title&gt;Google Drive&lt;/tool-title&gt;
+		&lt;/tool&gt;
+		&lt;/tools&gt;
+		&lt;/page&gt;
+		&lt;page id="[Page Id]"&gt;
+		&lt;page-title&gt;iTunes U&lt;/page-title&gt;
+		&lt;tools&gt;
+		&lt;tool id="[Tool Id]"&gt;
+		&lt;tool-id&gt;sakai.iTunesU&lt;/tool-id&gt;
+		&lt;tool-title&gt;iTunes U&lt;/tool-title&gt;
+		&lt;/tool&gt;
+		&lt;/tools&gt;
+		&lt;/page&gt;
+		&lt;page id="[Page Id]"&gt;
+		&lt;page-title&gt;Site Info&lt;/page-title&gt;
+		&lt;tools&gt;
+		&lt;tool id="[Tool Id]"&gt;
+		&lt;tool-id&gt;sakai.siteinfo&lt;/tool-id&gt;
+		&lt;tool-title&gt;Site Info&lt;/tool-title&gt;
+		&lt;/tool&gt;
+		&lt;/tools&gt;
+		&lt;/page&gt;
+		&lt;/pages&gt;
+		&lt;/site&gt;</getPagesAndToolsForSiteReturn>
+		      </ns1:getPagesAndToolsForSiteResponse>
 		   </soapenv:Body>
 		</soapenv:Envelope>
 		 */				
