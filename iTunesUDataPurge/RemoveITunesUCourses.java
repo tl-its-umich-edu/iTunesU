@@ -121,7 +121,8 @@ public class RemoveITunesUCourses {
 			String destination= t.get("destination")!=null?(String) t.get("destination"):"";
     		removeCourses(removeCoursesIds, prefix, destination, displayName, emailAddress, username, userIdentifier);
 		}
-    	
+		
+		System.out.println("Program Complete");
 	}
 	
 	static public String getCredentialToken(String displayName, String emailAddress, String username, String userIdentifier)
@@ -162,6 +163,8 @@ public class RemoveITunesUCourses {
 				String siteTitle = entry.getValue();
 				siteId = StringUtils.trimToNull(siteId.replaceAll("[\t\r\n]", ""));
 				String siteHandle = map.containsKey(siteId)? map.get(siteId):"";
+				System.out.println("Site Id    : " + siteId);
+				System.out.println("Site Handle: " + siteHandle);
 				if (!siteHandle.isEmpty()) 
 				{
 					count++;
@@ -176,16 +179,18 @@ public class RemoveITunesUCourses {
 					// delete course xml
 					//System.out.println(xmlDocument);
 					wsCall(WS_DELETE_COURSE, uploadURL, xmlDocument, prefix, destination, token);
+				}
 
-					System.out.println("Site Id: " + siteId);
-					try{
-						sessionId = deletePage(searchServer, sakaiLoginUrl, sakaiScriptUrl, siteId, sessionId, ctoolsUsername, ctoolsPassword);
-						System.out.println("iTunes U page for " + siteId + " deleted successfully.");
+				System.out.println("Removing iTunes U page for Site Id: " + siteId);
+				try{
+					//Attempt to remove iTunes U page for specified site
+					//iTunes U page should be removed from site regardless if content deletion was successful
+					sessionId = deletePage(searchServer, sakaiLoginUrl, sakaiScriptUrl, siteId, sessionId, ctoolsUsername, ctoolsPassword);
+					System.out.println("iTunes U page for " + siteId + " deleted successfully.");
 					}
-					catch(Exception e){
-						System.out.println("iTunes U page for " + siteId + " not deleted.");
-						System.out.println("deletePage Exception: " + e.getMessage());
-					}
+				catch(Exception e){
+					System.out.println("iTunes U page for " + siteId + " not deleted.");
+					System.out.println("deletePage Exception: " + e.getMessage());
 				}
 			}
 			//logout of CTools after all site Ids have been processed
@@ -530,7 +535,7 @@ public class RemoveITunesUCourses {
 		soapResponse.writeTo(System.out);
 		System.out.println("");
 		
-		sessionId = getSessionId(soapResponse);
+		sessionId = getFirstNode(soapResponse);
 		System.out.println("Session Id check 2: " + sessionId);
 
 		if(sessionId.equals("null")){
@@ -538,15 +543,29 @@ public class RemoveITunesUCourses {
 			System.out.print("Login Response SOAP Message:");
 			soapResponse.writeTo(System.out);
 			
-			sessionId = getSessionId(soapResponse);
+			sessionId = getFirstNode(soapResponse);
 			System.out.println("");
 			System.out.println("Session Id check 3: " + sessionId);
 		}
 		
-		soapResponse = soapConnection.call(createRemovePageRequest(searchServer, sessionId, siteId, pageToDelete), sakaiScriptUrl);
-		System.out.print("Remove Page Response SOAP Message:");
+		//Get list of pages and tools
+		soapResponse = soapConnection.call(createGetPagesAndToolsForSiteRequest(searchServer, sessionId, username, siteId), sakaiScriptUrl);
+		System.out.print("Get Pages and Tools for Site Response SOAP Message:");
 		soapResponse.writeTo(System.out);
 		System.out.println("");
+		
+		String pageList = getFirstNode(soapResponse);
+		System.out.println(pageList);
+		
+		if(pageList.contains("<tool-title>iTunes U</tool-title>")){
+			soapResponse = soapConnection.call(createRemovePageRequest(searchServer, sessionId, siteId, pageToDelete), sakaiScriptUrl);
+			System.out.print("Remove Page Response SOAP Message:");
+			soapResponse.writeTo(System.out);
+			System.out.println("");
+		}
+		else{
+			System.out.println("iTunes U Page does not exist for Site ID: " + siteId);
+		}
 				
 		soapConnection.close();
 		
@@ -592,18 +611,18 @@ public class RemoveITunesUCourses {
 		return soapMessage;
 	}
 
-	public static String getSessionId(SOAPMessage soapResponse ) {
-		String sessionId = "sessionId";
+	public static String getFirstNode(SOAPMessage soapResponse ) {
+		String firstNode = "firstNode";
 		try {
-			sessionId = soapResponse.getSOAPBody().getFirstChild().getFirstChild().getTextContent();
+			firstNode = soapResponse.getSOAPBody().getFirstChild().getFirstChild().getTextContent();
 		} catch (DOMException e) {
-			sessionId = "null";
+			firstNode = "null";
 			e.printStackTrace();
 		} catch (SOAPException e) {
-			sessionId = "null";
+			firstNode = "null";
 			e.printStackTrace();
 		}
-		return sessionId;
+		return firstNode;
 	}
 
 	public static SOAPMessage createCheckSessionRequest(String serverURI, String sessionId) throws Exception {
@@ -643,6 +662,48 @@ public class RemoveITunesUCourses {
 
 		return soapMessage;
 	}
+
+	public static SOAPMessage createGetPagesAndToolsForSiteRequest(String serverURI, String sessionId, String userId, String siteId) throws Exception{
+		MessageFactory messageFactory = MessageFactory.newInstance();
+		SOAPMessage soapMessage = messageFactory.createMessage();
+		SOAPPart soapPart = soapMessage.getSOAPPart();
+		
+		SOAPEnvelope envelope = soapPart.getEnvelope();
+		envelope.addNamespaceDeclaration("example", serverURI);		
+
+		/*
+		<?xml version="1.0" encoding="UTF-8"?>
+		<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+		   <soapenv:Body>
+		      <ns1:logoutResponse xmlns:ns1="[searchServer]" soapenv:encodingStyle="http://schemas.xmlsoap.org/soap/encoding/">
+		         <logoutReturn href="#id0" />
+		      </ns1:logoutResponse>
+		      <multiRef xmlns:soapenc="http://schemas.xmlsoap.org/soap/encoding/" id="id0" soapenc:root="0" soapenv:encodingStyle="http://schemas.xmlsoap.org/soap/encoding/" xsi:type="xsd:boolean">true</multiRef>
+		   </soapenv:Body>
+		</soapenv:Envelope>
+		 */				
+		
+		SOAPBody soapBody = envelope.getBody();
+		SOAPElement soapBodyElem = soapBody.addChildElement("getPagesAndToolsForSite", "example");
+		SOAPElement soapBodyElem1 = soapBodyElem.addChildElement("sessionid", "example");
+		soapBodyElem1.addTextNode(sessionId);
+		SOAPElement soapBodyElem3 = soapBodyElem.addChildElement("userid", "example");
+		soapBodyElem3.addTextNode(userId);
+		SOAPElement soapBodyElem2 = soapBodyElem.addChildElement("siteid", "example");
+		soapBodyElem2.addTextNode(siteId);
+
+		MimeHeaders headers = soapMessage.getMimeHeaders();
+		headers.addHeader("SOAPAction", serverURI  + "logout");
+		
+		soapMessage.saveChanges();
+
+		/* Print the request message */
+		System.out.print("Get Pages and Tools for Site Request SOAP Message:");
+		soapMessage.writeTo(System.out);
+		System.out.println("");
+		
+		return soapMessage;		
+	}	
 
 	public static SOAPMessage createRemovePageRequest(String serverURI, String sessionId, String siteId, String pageTitle) throws Exception {
 		MessageFactory messageFactory = MessageFactory.newInstance();
