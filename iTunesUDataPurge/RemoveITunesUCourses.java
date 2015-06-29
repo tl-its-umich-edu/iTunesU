@@ -557,7 +557,7 @@ public class RemoveITunesUCourses {
 		String pageList = getFirstNode(soapResponse);
 		System.out.println(pageList);
 		
-		if(pageList.contains("<tool-title>iTunes U</tool-title>")){
+		if(pageList.contains("<page-title>iTunes U</page-title>")){
 			soapResponse = soapConnection.call(createRemovePageRequest(searchServer, sessionId, siteId, pageToDelete), sakaiScriptUrl);
 			System.out.print("Remove Page Response SOAP Message:");
 			soapResponse.writeTo(System.out);
