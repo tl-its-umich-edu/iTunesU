@@ -34,6 +34,10 @@ import org.apache.commons.lang.*;
 
 import java.io.*;
 
+import java.text.DateFormat;
+import java.text.SimpleDateFormat;
+import java.util.Calendar;
+
 
 // using SAX
 public class DownloadITunesuFile {
@@ -383,11 +387,23 @@ public class DownloadITunesuFile {
 															//TODO: download the actual file with original file name and extension.
 														}
 													}
-													
+
 													System.out.println("item download url= " + itemUrl + " name=" + itemName + " item suffix=" + itemSuffix);
-													
+													System.out.println("Group Directory Name= " + groupDirectoryName);
+
+													//Check to see if file to be downloaded is already in local directory
+													if(isFilePresent(groupDirectoryName, itemName+"."+itemSuffix)){
+														DateFormat df = new SimpleDateFormat("_yyyyMMddHHmmssSSS");
+														String dateText = df.format(Calendar.getInstance().getTime());
+														// if file is present, modify itemName to be downloaded to include current timestamp (concatenate suffix here)
+														itemName = itemName+dateText+"."+itemSuffix;
+													}
+													else{
+														// otherwise keep itemName to be downloaded as is from iTunes U (concatonate suffix here)
+														itemName = itemName+"."+itemSuffix;
+													}
 													// download the item
-													fileUrl(itemUrl, itemName+"." + itemSuffix, groupDirectoryName);
+													fileUrl(itemUrl, itemName, groupDirectoryName);
 													
 												}
 											}
@@ -462,6 +478,24 @@ public class DownloadITunesuFile {
 				e.printStackTrace();
 			}
 		}
+	}
+
+	public static boolean isFilePresent(String directory, String fileName){
+
+		boolean result = false;
+
+		String completeFileName = directory + "/" + fileName;
+		
+		File file = new File(completeFileName);
+
+		if(file.exists() && !file.isDirectory()){
+			System.out.println("File Exists!");
+			result = true;
+		}
+		else{
+			result = false;
+		}
+		return result;
 	}
 	
 }

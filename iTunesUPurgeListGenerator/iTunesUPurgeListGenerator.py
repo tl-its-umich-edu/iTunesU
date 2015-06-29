@@ -124,12 +124,12 @@ logger.info('closing connection to database')
 #Download exceptions file
 CLIENT_SECRET = 'tl_client_secret.json'
 SCOPES = [
-	'https://www.googleapis.com/auth/drive.readonly',
-	'https://www.googleapis.com/auth/drive',
-	'https://www.googleapis.com/auth/drive.appdata',
-	'https://www.googleapis.com/auth/drive.apps.readonly',
-	'https://www.googleapis.com/auth/drive.file',
-	'https://www.googleapis.com/auth/drive.readonly'
+  'https://www.googleapis.com/auth/drive.readonly',
+  'https://www.googleapis.com/auth/drive',
+  'https://www.googleapis.com/auth/drive.appdata',
+  'https://www.googleapis.com/auth/drive.apps.readonly',
+  'https://www.googleapis.com/auth/drive.file',
+  'https://www.googleapis.com/auth/drive.readonly'
 ]
 store = file.Storage('storage.json')
 creds = store.get()
@@ -145,50 +145,77 @@ download_file(DRIVE, gFile)
 #Get the site exceptions that we are checking
 with open('itunes_exceptions.csv') as f:
     for line in f:
-    	exceptions.append(line.rstrip('\n\r '))
+      exceptions.append(line.rstrip('\n\r '))
 for n, exception in enumerate(exceptions):
-	splits = exception.split(',')
-	siteId = splits[0]
-	exceptions[n] = siteId
+  splits = exception.split(',')
+  siteId = splits[0]
+  exceptions[n] = siteId
 for exception in exceptions:
-	logger.debug('Exception Site Id: ' + str(exception))
+  logger.debug('Exception Site Id: ' + str(exception))
 
 #Get the sites that we are checking
 with open('output_file.csv', 'rb') as f:
     for line in f:
-    	entries.append(line.rstrip('\n\r '))
+      entries.append(line.rstrip('\n\r '))
+
+sortedSiteIds = []
+
+for entry in entries:
+    logger.debug('Entry: ' + entry)
+    #Skip Header Row
+    if entry is entries[0]:
+        continue
+    fields = entry.split(',')
+    name = fields[0]
+    title = fields[1]
+    siteId = fields[2]
+    if siteId in exceptions:
+        #skip
+        continue
+    sortedSiteIds.append(name + '\t' + siteId)
+
+#Convert SiteIds list to set. This will strip all duplicates because sets can 
+#only have unique values.
+sortedSiteIds = set(sortedSiteIds)
+sortedSiteIds = list(sortedSiteIds)
+sortedSiteIds.sort()
+
+logger.info('Create siteIds.txt')
+with open('siteIds.txt', 'wb') as siteIdsFile:
+    for siteId in sortedSiteIds:
+        siteIdsFile.write(siteId + '\n')
 
 prevName = ''
 row = ''
 
 logger.info('Create and properly formay iTunesUPurgeEmailList.csv file...')
 with open('iTunesUPurgeEmailList.csv', 'wb') as csvfile:
-	for entry in entries:
-		logger.debug('Entry: ' + entry)
-		fields = entry.split(',')
-		name = fields[0]
-		title = fields[1]
-		siteId = fields[2]
-		if siteId in exceptions:
-			#skip
-			continue
-		if name != prevName:
-			logger.debug('Row: ' + row)
-			if row != '':
-				csvfile.write(row + '\n')
-			modName = name
-			#if uMich account, input only has uniqName so add '@umich.edu'. Otherwise, @someplace.com already on name.
-			if '@' not in modName and entry != entries[0]:
-				modName = modName + '@umich.edu'
-			row = modName + ',' + title + ',' + siteId
-			row = row.rstrip('\n')
-		else:
-			row = row + ',' + title + ',' + siteId
-			row = row.rstrip('\n')
-		prevName = name
+  for entry in entries:
+    logger.debug('Entry: ' + entry)
+    fields = entry.split(',')
+    name = fields[0]
+    title = fields[1]
+    siteId = fields[2]
+    if siteId in exceptions:
+      #skip
+      continue
+    if name != prevName:
+      logger.debug('Row: ' + row)
+      if row != '':
+        csvfile.write(row + '\n')
+      modName = name
+      #if uMich account, input only has uniqName so add '@umich.edu'. Otherwise, @someplace.com already on name.
+      if '@' not in modName and entry != entries[0]:
+        modName = modName + '@umich.edu'
+      row = modName + ',' + title + ',' + siteId
+      row = row.rstrip('\n')
+    else:
+      row = row + ',' + title + ',' + siteId
+      row = row.rstrip('\n')
+    prevName = name
 
-	logger.debug('Row: ' + row)
-	csvfile.write(row + '\n')
+  logger.debug('Row: ' + row)
+  csvfile.write(row + '\n')
 
 logger.info('Length: ' + str(len(entries)))
 logger.info('Script Completed - Done')

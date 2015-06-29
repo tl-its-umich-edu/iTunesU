@@ -138,7 +138,46 @@ class Utils
  
     	return rv;
 	}
-    
+
+    /**
+     * read configuration variables
+     */
+    static protected Hashtable<String, String> getCtoolsConfigs()
+    {
+        // Define your site's information.
+        Hashtable<String, String> rv = new Hashtable<String, String>();
+        
+        Properties prop = new Properties();
+        InputStream input = null;
+ 
+        try {
+            input = new FileInputStream(CONFIG_FILE_NAME);
+ 
+            // load a properties file
+            prop.load(input);
+ 
+            // get the property value and print it out
+            rv.put("ctools_search_server", "http://" + prop.getProperty("ctools_search_server") + "/");
+            rv.put("ctools_admin_username", prop.getProperty("ctools_admin_username"));
+            rv.put("ctools_admin_password", prop.getProperty("ctools_admin_password"));
+
+ 
+        } catch (IOException ex) {
+            ex.printStackTrace();
+        } finally {
+            if (input != null) {
+                try {
+                    input.close();
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+            }
+        }
+ 
+        return rv;
+    }
+
+
     /**
      * Combine user identity information into an appropriately formatted string.
      *
